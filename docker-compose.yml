@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ee:latest
+    container_name: gitlab
+    restart: always
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://127.0.0.1'
+        gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD}'
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    networks:
+      - gitlabnet
+
+  sonarqube:
+    image: sonarqube
+    container_name: sonarqube
+    ports:
+      - "127.0.0.1:9000:9000"
+    networks:
+      - sonarnet
+    environment:
+      - sonar.jdbc.username=${SONAR_DB_USER}
+      - sonar.jdbc.password=${SONAR_DB_PASSWORD}
+      - sonar.jdbc.url=jdbc:postgresql://sonarqube_db:5432/${SONAR_DB_NAME}
+    volumes:
+      - sonarqube_conf:/opt/sonarqube/conf
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_bundled-plugins:/opt/sonarqube/lib/bundled-plugins
+
+  sonarqube_db:
+    image: postgres:latest
+    container_name: sonarqube_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${SONAR_DB_USER}
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD}
+      POSTGRES_DB: ${SONAR_DB_NAME}
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - sonarnet
+
+  openproject:
+      image: openproject/openproject:14
+      container_name: openproject        
+      ports:
+          - "8200:80"
+      restart: unless-stopped    
+      environment:
+        - OPENPROJECT_SECRET_KEY_BASE=${OPENPROJECT_SECRET_KEY}
+        - OPENPROJECT_HOST__NAME=localhost:8200    # tudominio.com
+        - OPENPROJECT_HTTPS=false
+        - OPENPROJECT_DEFAULT__LANGUAGE=en
+      volumes:
+        - ./pgdata:/var/openproject/pgdata
+        - ./assets:/var/openproject/assets 
+      networks:
+        - openprojectnet
+
+networks:
+  gitlabnet:
+    driver: bridge
+  sonarnet:
+    driver: bridge
+  openprojectnet:
+    driver: bridge
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  sonarqube_conf:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_bundled-plugins:
+  postgresql:
+  postgresql_data:
+  openproject_data:
+  openproject_db_data:
