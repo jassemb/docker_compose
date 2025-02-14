@@ -1,0 +1,29 @@
+stages:
+  - security_scan  # Define the stage
+  - SCA
+security-misc-scan:
+  stage: security_scan
+  variables:
+    TRIVY_NO_PROGRESS: "true"
+    TRIVY_CACHE_DIR: ".trivycache/"
+  before_script:
+    - apt-get update && apt-get install curl -y
+    - export TRIVY_VERSION=$(curl -s "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    - echo $TRIVY_VERSION
+    - curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz | tar -zxvf -
+  script:
+    - touch misc-scan-report.txt
+    - ./trivy filesystem --scanners config,vuln --exit-code 0 --format table -o misc-scan-report.txt .
+    - cat misc-scan-report.txt
+  cache:
+    paths:
+      - .trivycache/
+  artifacts:
+    paths:
+      - misc-scan-report.txt
+  when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "parent_pipeline" || $CI_COMMIT_BRANCH == "main"
+  allow_failure: true
+  tags:
+    - test_runner
